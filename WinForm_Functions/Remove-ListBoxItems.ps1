@@ -5,5 +5,7 @@
 		[Parameter(Mandatory = $true)]
 		[System.Windows.Forms.ListBox]$ListBox
 	)
-	$ListBox.Items.Remove()
+	$ListBox.BeginUpdate()
+	$ListBox.Items.Clear()
+	$ListBox.EndUpdate()
 }
