@@ -3,7 +3,9 @@
 	PARAM (
 		[ValidateNotNull()]
 		[Parameter(Mandatory = $true)]
-		[System.Windows.Forms.ListBox]$ListBox
+		[System.Windows.Forms.ListBox]$ListBox,
+		[switch]$Count
 	)
-	$ListBox.Items
+	IF ($Count) { $ListBox.Items.Count }
+	ELSE { $ListBox.Items}
 }
