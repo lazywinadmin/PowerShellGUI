@@ -1,4 +1,4 @@
-PowerShellGUI
+WinFormPS
 =============
 
 This repository focus managing Winforms controls using PowerShell scripting.
