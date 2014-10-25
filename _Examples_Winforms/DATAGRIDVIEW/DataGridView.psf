@@ -1092,7 +1092,12 @@ function Set-DataGridView
 
 #endregion
 
-$buttonGetProcess_Click={Load-DataGridView -DataGridView $datagridview1 -Item (Get-Process)}
+$buttonGetProcess_Click = {
+	
+	# Testing to import a csv in Datagridview
+	#Get-Process | Export-Csv -Path $home\desktop\process.csv -Force
+	#Load-DataGridView -DataGridView $datagridview1 -Item (Import-Csv $home\desktop\process.csv)}
+	Load-DataGridView -DataGridView $datagridview1 -Item (Get-Process | select name, id)}
 $buttonRemove_Click={Set-DataGridViewRowHeader -DataGridView $datagridview1 -HideRowHeader}
 $buttonShow_Click={Set-DataGridViewRowHeader -DataGridView $datagridview1 -ShowRowHeader}
 $buttonAlternateColors_Click={Set-DataGridView -DataGridView $datagridview1 -AlternativeRowColor -ForeColor 'White' -BackColor 'Blue'}
