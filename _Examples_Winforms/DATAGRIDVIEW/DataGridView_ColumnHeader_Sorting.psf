@@ -372,7 +372,6 @@ AfuucP+xsGXrAAAAAElFTkSuQmCC</Preview>
     <Property name="Text">Form</Property>
     <Event name="Load">form1_Load</Event>
     <Object type="System.Windows.Forms.DataGridView, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="datagridview1" children="Controls">
-      <Property name="AllowUserToOrderColumns">True</Property>
       <Property name="ColumnHeadersHeightSizeMode">AutoSize</Property>
       <Property name="Dock">Fill</Property>
       <Property name="Location">0, 0</Property>
@@ -404,20 +403,27 @@ function OnApplicationExit {
 }
 
 $form1_Load = {
-	
-	#OPTION1
-	<#
+	$Processes = Get-Process | Select-Object -Property Name, id, ws
+	$ProcessesDT = ConvertTo-DataTable -InputObject $Processes
+	Load-DataGridView -DataGridView $datagridview1 -Item $ProcessesDT
+}
+
+#OPTION1
+<#
 	$Table = New-Object System.Data.DataTable
 	$Processes = Get-Process | Select-Object -Property Name, id, ws
 	
 	Convert-ToDataTable -InputObject $Processes -Table $Table
 	Convert-ToDataTable -InputObject $Processes -RetainColumns
 	Load-DataGridView -DataGridView $datagridview1 -Item $Table
-	#>
-	
-	#OPTION2
-	Load-DataGridView -DataGridView $datagridview1 -Item (Get-Process|Select-Object name,id|Out-DataTable)
-}
+
+
+Load-DataGridView -DataGridView $datagridview1 -Item (ConvertTo-DataTable -InputObject (Get-Process))
+
+
+#OPTION2
+#Load-DataGridView -DataGridView $datagridview1 -Item (Get-Process|Select-Object name,id|Out-DataTable)
+#>
 
 #region Control Helper Functions
 function Load-DataGridView
@@ -475,115 +481,128 @@ function Load-DataGridView
 	$DataGridView.ResumeLayout()
 }
 
-function Convert-ToDataTable
+function ConvertTo-DataTable
 {
-    <#
-        .SYNOPSIS
-            Converts objects into a DataTable.
-     
-        .DESCRIPTION
-            Converts objects into a DataTable, which are used for DataBinding.
-     
-        .PARAMETER  InputObject
-            The input to convert into a DataTable.
-     
-        .PARAMETER  Table
-            The DataTable you wish to load the input into.
-     
-        .PARAMETER RetainColumns
-            This switch tells the function to keep the DataTable's existing columns.
-         
-        .PARAMETER FilterWMIProperties
-            This switch removes WMI properties that start with an underline.
-     
-        .EXAMPLE
-            Convert-ToDataTable -InputObject (Get-Process) -Table $DataTable
-    #>
-	
+		<#
+			.SYNOPSIS
+				Converts objects into a DataTable.
+		
+			.DESCRIPTION
+				Converts objects into a DataTable, which are used for DataBinding.
+		
+			.PARAMETER  InputObject
+				The input to convert into a DataTable.
+		
+			.PARAMETER  Table
+				The DataTable you wish to load the input into.
+		
+			.PARAMETER RetainColumns
+				This switch tells the function to keep the DataTable's existing columns.
+			
+			.PARAMETER FilterWMIProperties
+				This switch removes WMI properties that start with an underline.
+		
+			.EXAMPLE
+				$DataTable = ConvertTo-DataTable -InputObject (Get-Process)
+		#>
+	[OutputType([System.Data.DataTable])]
 	param (
+		[ValidateNotNull()]
 		$InputObject,
 		[ValidateNotNull()]
 		[System.Data.DataTable]$Table,
 		[switch]$RetainColumns,
 		[switch]$FilterWMIProperties)
 	
+	if ($Table -eq $null)
+	{
+		$Table = New-Object System.Data.DataTable
+	}
+	
 	if ($InputObject -is [System.Data.DataTable])
 	{
 		$Table = $InputObject
-		return
-	}
-	
-	if (-not $RetainColumns -or $Table.Columns.Count -eq 0)
-	{
-		#Clear out the Table Contents
-		$Table.Clear()
-		
-		if ($InputObject -eq $null) { return } #Empty Data
-		
-		$object = $null
-		#find the first non null value
-		foreach ($item in $InputObject)
-		{
-			if ($item -ne $null)
-			{
-				$object = $item
-				break
-			}
-		}
-		
-		if ($object -eq $null) { return } #All null then empty
-		
-		#Get all the properties in order to create the columns
-		$properties = Get-Member -MemberType 'Properties' -InputObject $object
-		foreach ($prop in $properties)
-		{
-			if (-not $FilterWMIProperties -or -not $prop.Name.StartsWith('__'))#filter out WMI properties
-			{
-				#Get the type from the Definition string
-				$index = $prop.Definition.IndexOf(' ')
-				$type = $null
-				if ($index -ne -1)
-				{
-					$typeName = $prop.Definition.SubString(0, $index)
-					try { $type = [System.Type]::GetType($typeName) }
-					catch { }
-				}
-				
-				if ($type -ne $null -and [System.Type]::GetTypeCode($type) -ne 'Object')
-				{
-					[void]$table.Columns.Add($prop.Name, $type)
-				}
-				else #Type info not found
-				{
-					[void]$table.Columns.Add($prop.Name)
-				}
-			}
-		}
 	}
 	else
 	{
-		$Table.Rows.Clear()
-	}
-	
-	$count = $table.Columns.Count
-	foreach ($item in $InputObject)
-	{
-		$row = $table.NewRow()
-		
-		for ($i = 0; $i -lt $count; $i++)
+		if (-not $RetainColumns -or $Table.Columns.Count -eq 0)
 		{
-			$column = $table.Columns[$i]
-			$prop = $column.ColumnName
+			#Clear out the Table Contents
+			$Table.Clear()
 			
-			$value = Invoke-Expression ('$item.{0}' -f $prop)
-			if ($value -ne $null)
+			if ($InputObject -eq $null) { return } #Empty Data
+			
+			$object = $null
+			#find the first non null value
+			foreach ($item in $InputObject)
 			{
-				$row[$i] = $value
+				if ($item -ne $null)
+				{
+					$object = $item
+					break
+				}
+			}
+			
+			if ($object -eq $null) { return } #All null then empty
+			
+			#Get all the properties in order to create the columns
+			foreach ($prop in $object.PSObject.Get_Properties())
+			{
+				if (-not $FilterWMIProperties -or -not $prop.Name.StartsWith('__'))#filter out WMI properties
+				{
+					#Get the type from the Definition string
+					$type = $null
+					
+					if ($prop.Value -ne $null)
+					{
+						try { $type = $prop.Value.GetType() }
+						catch { }
+					}
+					
+					if ($type -ne $null) # -and [System.Type]::GetTypeCode($type) -ne 'Object')
+					{
+						[void]$table.Columns.Add($prop.Name, $type)
+					}
+					else #Type info not found
+					{
+						[void]$table.Columns.Add($prop.Name)
+					}
+				}
+			}
+			
+			if ($object -is [System.Data.DataRow])
+			{
+				foreach ($item in $InputObject)
+				{
+					$Table.Rows.Add($item)
+				}
+				return @(, $Table)
 			}
 		}
+		else
+		{
+			$Table.Rows.Clear()
+		}
 		
-		[void]$table.Rows.Add($row)
+		foreach ($item in $InputObject)
+		{
+			$row = $table.NewRow()
+			
+			if ($item)
+			{
+				foreach ($prop in $item.PSObject.Get_Properties())
+				{
+					if ($table.Columns.Contains($prop.Name))
+					{
+						$row.Item($prop.Name) = $prop.Value
+					}
+				}
+			}
+			[void]$table.Rows.Add($row)
+		}
 	}
+	
+	return @(, $Table)
 }
 
 function Out-DataTable
@@ -700,6 +719,22 @@ http://thepowershellguy.com/blogs/posh/archive/2007/01/21/powershell-gui-scripbl
 
 $datagridview1_ColumnHeaderMouseClick=[System.Windows.Forms.DataGridViewCellMouseEventHandler]{
 #Event Argument: $_ = [System.Windows.Forms.DataGridViewCellMouseEventArgs]
+	if ($datagridview1.DataSource -is [System.Data.DataTable])
+	{
+		$column = $datagridview1.Columns[$_.ColumnIndex]
+		$direction = [System.ComponentModel.ListSortDirection]::Ascending
+		
+		if ($column.HeaderCell.SortGlyphDirection -eq 'Descending')
+		{
+			$direction = [System.ComponentModel.ListSortDirection]::Descending
+		}
+		
+		$datagridview1.Sort($datagridview1.Columns[$_.ColumnIndex], $direction)
+	}
+}
+
+
+
 	<#IF ($datagridview1.DataSource -is [System.Data.DataTable])
 	{
 		# Get the current Column
@@ -716,22 +751,7 @@ $datagridview1_ColumnHeaderMouseClick=[System.Windows.Forms.DataGridViewCellMous
 		#$datagridview1.Sort($datagridview1.Columns[$_.ColumnIndex], $direction)
 		$datagridview1.Sort($($column.Name),$direction)
 	}
-	#>
-
-	if ($datagridview1.DataSource -is [System.Data.DataTable])
-	{
-		$column = $datagridview1.Columns[$_.ColumnIndex]
-		$direction = [System.ComponentModel.ListSortDirection]::Ascending
-		
-		if ($column.HeaderCell.SortGlyphDirection -eq 'Descending')
-		{
-			$direction = [System.ComponentModel.ListSortDirection]::Descending
-		}
-		
-		$datagridview1.Sort($datagridview1.Columns[$_.ColumnIndex], $direction)
-	}
-}
-]]></Code>
+	#>]]></Code>
   <Mode>1</Mode>
   <Assemblies>
     <Assembly>System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35</Assembly>
