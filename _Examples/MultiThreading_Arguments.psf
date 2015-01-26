@@ -1,6 +1,6 @@
 ﻿<File version="2">
   <FileID>6ca0c3d3-c223-4047-bf67-578fa0ae79a1</FileID>
-  <LastExport>130667680687421288</LastExport>
+  <LastExport>130667694752722681</LastExport>
   <Preview>iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAAAXNSR0IArs4c6QAAAARnQU1BAACx
 jwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAACXZSURBVHhe7d1pcNVloufx7uquqep+OTVvuqd6
 XkzVrbrzwq65datmuu7tabvt222rjYiiCAKCoriwubWKLAqioOyCtIDsSNgJCSSBJJB93/d9I8vJ
@@ -208,14 +208,18 @@ iIiIiIiIiIiIiIiIiIiIiIiIiIiIiOgu6Ec/+v+1ZwpH/IHYNwAAAABJRU5ErkJggg==</Preview>
   <Object type="System.Windows.Forms.Timer, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" name="timerJobTracker">
     <Event name="Tick">timerJobTracker_Tick</Event>
   </Object>
-  <Code><![CDATA[function OnApplicationLoad {
+  <Code><![CDATA[
+# Define some argument to pass to the Add-JobTracker function
+[string]$ProcessName = "Chrome"
+[array]$Property = "Name","Handles"
+
+function OnApplicationLoad {
 	#Note: This function is not called in Projects
 	#Note: This function runs before the form is created
 	#Note: To get the script directory in the Packager use: Split-Path $hostinvocation.MyCommand.path
 	#Note: To get the console output in the Packager (Windows Mode) use: $ConsoleOutput (Type: System.Collections.ArrayList)
 	#Important: Form controls cannot be accessed in this function
 	#TODO: Add modules and custom code to validate the application load
-	Import-Module ShowUI
 	
 	return $true #return true for success or false for failure
 }
@@ -465,15 +469,19 @@ $buttonProcess_Click={
 	Add-JobTracker `
 	-Name "Processes" `
 	-JobScript {
-		Get-Process
-		Start-Sleep -Seconds 5
+		PARAM ($Process, $Property)
+		Get-Process $Process | Select-Object -Property $Property
+ 		Start-Sleep -Seconds 5
 	} `
 	-CompletedScript {
 		#PARAM($job)
+		PARAM ($Property)
 		$results = Receive-Job -Name "Processes"
 		Load-DataGridView -DataGridView $datagridview1 -Item $results
 		
 	}`
+	-ArgumentList $ProcessName,$Property
+	
 	#-ArgumentList "win32_process" `
 }
 
@@ -484,12 +492,12 @@ $buttonServices_Click={
 	-JobScript {
 		Get-Service
 	} `
-	-ArgumentList "win32_process" `
 	-CompletedScript {
 		#PARAM($job)
 		$results = Receive-Job -Name "Services"
 		Load-DataGridView -DataGridView $datagridview1 -Item $results
 	}
+	#-ArgumentList "win32_process" `
 }
 ]]></Code>
   <Mode>1</Mode>
